@@ -1,0 +1,18 @@
+[Unit]
+Description=HueMedia API Server (port 5000)
+After=network.target local-fs.target
+Wants=local-fs.target
+
+[Service]
+Type=simple
+User=hue
+WorkingDirectory=/opt/hue-media/server
+ExecStartPre=/bin/bash -c 'while ! mountpoint -q /pool/Music 2>/dev/null && [ ! -f /opt/hue-media/.setup-complete ]; do sleep 2; done'
+ExecStart=/opt/hue-media/player/.venv/bin/python /opt/hue-media/server/run.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target

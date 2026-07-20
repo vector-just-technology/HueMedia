@@ -1,0 +1,21 @@
+[Unit]
+Description=HueMedia Touchscreen Player
+After=graphical.target local-fs.target bluetooth.target
+Wants=local-fs.target
+
+[Service]
+Type=simple
+User=hue
+WorkingDirectory=/opt/hue-media/player
+Environment=SDL_FBDEV=/dev/fb1
+Environment=SDL_MOUSEDEV=/dev/input/touchscreen
+Environment=SDL_MOUSEDRV=evdev
+Environment=SDL_VIDEODRIVER=fbcon
+Environment=DISPLAY=
+ExecStartPre=/usr/bin/sleep 5
+ExecStart=/opt/hue-media/player/.venv/bin/python /opt/hue-media/player/main.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

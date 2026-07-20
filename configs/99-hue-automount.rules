@@ -1,0 +1,5 @@
+ACTION=="add", KERNEL=="sd[a-z][0-9]", SUBSYSTEM=="block", ENV{ID_FS_TYPE}!="", \
+  RUN+="/opt/hue-media/scripts/autodetect-storage.sh"
+
+ACTION=="remove", KERNEL=="sd[a-z][0-9]", SUBSYSTEM=="block", \
+  RUN+="/opt/hue-media/scripts/autodetect-storage.sh"

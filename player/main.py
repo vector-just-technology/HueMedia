@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""HueMedia — LVGL touchscreen player for RPi 3B + 3.5" LCD.
+"""HueMedia — SDL2 touchscreen player for RPi 3B + 3.5" LCD.
 
-Entry point that initializes all subsystems and runs the UI.
+Entry point that initializes all subsystems and runs the SDL2 UI.
 """
 
 import os
 import sys
+import signal
 import logging
-import argparse
 from pathlib import Path
 
 logging.basicConfig(
@@ -18,9 +18,10 @@ logger = logging.getLogger("hue")
 
 
 def main():
+    import argparse
     parser = argparse.ArgumentParser(description="HueMedia Player")
-    parser.add_argument("--sdl", action="store_true", help="Use SDL2 backend (for development)")
-    parser.add_argument("--headless", action="store_true", help="Run without display (CLI mode)")
+    parser.add_argument("--sdl", action="store_true", help="Use SDL2 X11 backend (desktop dev)")
+    parser.add_argument("--headless", action="store_true", help="Run without display (CLI)")
     parser.add_argument("--scan", action="store_true", help="Scan library and exit")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
@@ -28,73 +29,66 @@ def main():
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    # Set environment for SDL/FB
+    # SDL2 environment — framebuffer by default, X11 with --sdl
     if args.sdl:
-        os.environ.setdefault("SDL_VIDEODRIVER", "x11")
+        os.environ["SDL_VIDEODRIVER"] = "x11"
+        os.environ["DISPLAY"] = ":0"
     else:
-        os.environ.setdefault("SDL_FBDEV", "/dev/fb1")
-        os.environ.setdefault("SDL_MOUSEDEV", "/dev/input/touchscreen")
-        os.environ.setdefault("SDL_MOUSEDRV", "evdev")
-        os.environ.setdefault("SDL_VIDEODRIVER", "fbcon")
+        os.environ["SDL_VIDEODRIVER"] = "fbcon"
+        os.environ["SDL_FBDEV"] = "/dev/fb1"
 
-    # Write PID file for signaling
+    # Write PID for external signaling (SIGUSR1 = rescan)
     Path("/tmp/hue-media-player.pid").write_text(str(os.getpid()))
 
     # --- Init subsystems ---
-    from config import load_config, save_config
+    from config import load_config
     from engine import PlaybackEngine
     from library import MusicLibrary
     from bluetooth import BluetoothManager
 
     cfg = load_config()
-    logger.info(f"Config loaded: volume={cfg.get('volume')}, shuffle={cfg.get('shuffle')}")
+    logger.info(f"Config loaded")
 
     engine = PlaybackEngine()
     library = MusicLibrary()
     bt_manager = BluetoothManager()
 
-    # Try loading cached library, then scan in background
     if library.load_cache():
-        logger.info("Loaded library from cache")
+        logger.info("Loaded cached library")
     library.scan()
 
-    # --- Init display ---
-    from ui.app import DisplayDriver, ScreenManager
-    from ui.now_playing import NowPlayingScreen
-    from ui.library import LibraryScreen
-    from ui.bluetooth import BluetoothScreen
-    from ui.settings import SettingsScreen
-
-    disp = DisplayDriver(sdl_mode=args.sdl)
-    disp.init()
-
-    sm = ScreenManager(engine, library, bt_manager, disp)
-
-    # Register screens
-    sm.register("now_playing", NowPlayingScreen(engine, library))
-    sm.register("library", LibraryScreen(engine, library, sm))
-    sm.register("bluetooth", BluetoothScreen(engine, bt_manager))
-    sm.register("settings", SettingsScreen(engine, library, disp, bt_manager))
-
-    # Handle SIGUSR1 -> rescan library
-    import signal as sig
-
+    # Handle SIGUSR1 -> rescan
     def handle_rescan(signum, frame):
-        logger.info("Rescanning library...")
+        logger.info("Rescan triggered via SIGUSR1")
         library.scan()
-
-    sig.signal(sig.SIGUSR1, handle_rescan)
-
-    # Switch to now-playing screen
-    sm.switch("now_playing")
-
-    logger.info("HueMedia started")
+    signal.signal(signal.SIGUSR1, handle_rescan)
 
     if args.scan:
-        logger.info("Scan complete — exiting")
+        logger.info(f"Scan complete: {len(library.get_all_tracks())} tracks")
         return
 
-    # Run UI loop
+    if args.headless:
+        logger.info("Headless mode — idle")
+        signal.pause()
+        return
+
+    # --- SDL2 UI ---
+    from ui.sdl_app import SDLDisplay, ScreenManager
+    from ui.screens import NowPlayingScreen, LibraryScreen, BluetoothScreen, SettingsScreen
+
+    disp = SDLDisplay()
+    if not disp.init():
+        logger.error("Failed to initialize SDL2 display")
+        return 1
+
+    sm = ScreenManager(disp, engine, library, bt_manager)
+    sm.register("now_playing", NowPlayingScreen(disp, engine, library, bt_manager, sm))
+    sm.register("library", LibraryScreen(disp, engine, library, bt_manager, sm))
+    sm.register("bluetooth", BluetoothScreen(disp, engine, library, bt_manager, sm))
+    sm.register("settings", SettingsScreen(disp, engine, library, bt_manager, sm))
+
+    logger.info("HueMedia started — SDL2 UI")
+
     try:
         sm.run()
     except KeyboardInterrupt:
@@ -106,4 +100,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

@@ -52,13 +52,10 @@ fi
 "$VENV_DIR/bin/pip" install --upgrade pip -q
 "$VENV_DIR/bin/pip" install -r "$PLAYER_DIR/requirements.txt" -q
 
-# Install LVGL Python bindings
-"$VENV_DIR/bin/pip" install lvgl 2>/dev/null || {
-  warn "LVGL binary wheel not available — building from source"
-  "$VENV_DIR/bin/pip" install lvgl --no-binary lvgl 2>/dev/null || {
-    warn "LVGL build failed — will use SDL2 framebuffer mode without LVGL"
-  }
-}
+# Install pysdl2 with SDL2 image/ttf support
+if has_cmd apt; then
+  apt_install python3-pysdl2 2>/dev/null || true
+fi
 
 SERVER_DIR="$INSTALL_DIR/server"
 if [ -d "$SERVER_DIR" ]; then

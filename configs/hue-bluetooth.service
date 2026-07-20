@@ -1,0 +1,16 @@
+[Unit]
+Description=HueMedia Bluetooth Manager
+After=bluetooth.target pulseaudio.service
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+User=hue
+ExecStartPre=/usr/bin/bluetoothctl -- power on
+ExecStart=/opt/hue-media/player/.venv/bin/python /opt/hue-media/player/bluetooth.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

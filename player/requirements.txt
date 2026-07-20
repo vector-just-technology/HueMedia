@@ -1,5 +1,5 @@
 python-mpv>=1.0.3
-lvgl>=9.2
+PySDL2>=0.9.16
 Pillow>=10.0
 requests>=2.31
 dbus-python>=1.3
