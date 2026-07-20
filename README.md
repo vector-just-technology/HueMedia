@@ -1,79 +1,160 @@
 <p align="center">
   <img src="https://img.shields.io/badge/HueMedia-Media%20Player-purple" alt="HueMedia">
   <img src="https://img.shields.io/badge/MPV-Engine-green" alt="MPV">
-  <img src="https://img.shields.io/badge/LVGL-UI-blue" alt="LVGL">
+  <img src="https://img.shields.io/badge/SDL2-UI-blue" alt="SDL2">
   <img src="https://img.shields.io/badge/Raspberry%20Pi-3B-red" alt="RPi3B">
   <img src="https://img.shields.io/badge/Licence-MIT-orange" alt="Licence">
 </p>
 
 # HueMedia
 
-A lightweight, touch-optimized media player for **Raspberry Pi 3B** with **Hosyond 3.5" GPIO touchscreen (LCD-35-Show)**. Bluetooth headphones, Spotify/YouTube streaming, auto-storage pooling, dual-drive isolation, and a web management interface at `10.0.0.174:5000`.
+A lightweight, touch-optimized media player for **Raspberry Pi 3B** with **Hosyond 3.5" GPIO touchscreen (LCD-35-Show)**. SDL2-based UI, MPV playback engine, Bluetooth A2DP/AVRCP headphones, Spotify/YouTube streaming, auto-detecting USB storage pooling, dual-drive isolation ([SYSTEM] vs [MUSIC]), SAMBA sharing, and a full React web management interface.
 
 ---
 
 ## Features
 
-| Feature | Description |
+| Feature | Details |
 |---|---|
-| **Touch UI** | LVGL-powered interface built for the 3.5" display — big buttons, swipeable screens |
-| **Audio Playback** | MPV engine with hardware acceleration — plays MP3, FLAC, WAV, AAC, and more |
-| **Video Playback** | Full video support on the 3.5" screen |
-| **Bluetooth** | Pair headphones, handle AVRCP buttons (play/pause/skip/back), on-screen device management |
-| **Spotify / YouTube** | Stream via `yt-dlp` + MPV; Spotify via `librespot` |
-| **Music Library** | Auto-scans `Music/Artist/Song/song.mp3 + cover.png` structure; alphabetical sort, shuffle, repeat |
-| **Cover Art** | Reads `cover.png` per song folder; displays on screen and web UI |
-| **Web Interface** | Rich React-based UI at `10.0.0.174:5000` — browse library, manage playback, upload songs, SSH terminal, plugin manager |
-| **Dual Drive** | `[SYSTEM]` drive (SD card) is read-only for music; `[MUSIC]` drives (USB) are auto-detected and pooled via mergerfs |
-| **SAMBA** | Network file sharing to easily drop music onto your pooled drives |
-| **Recovery System** | First-boot webpage at `10.0.0.174:3000` handles LCD driver installation, SSH re-enable, diagnostics |
-| **Battery Optimized** | Idle CPU scaling, USB autosuspend, lightweight stack |
+| **Touch UI** | SDL2 on framebuffer — 44px+ touch targets, swipeable, zero X11 overhead |
+| **Playback** | MPV engine with hardware video decode — MP3, FLAC, WAV, AAC, MP4, MKV |
+| **Video** | Full video playback on the 3.5" LCD |
+| **Bluetooth** | Pair headphones, AVRCP buttons (play/pause/skip/back), on-screen management |
+| **Spotify / YouTube** | Stream via yt-dlp + MPV; Spotify via librespot |
+| **Cover Art** | Reads `cover.png` per song folder, displays on both LCD and web UI |
+| **Music Library** | Auto-scans `Music/Artist/Song/song.mp3 + cover.png` — alphabetical sort, shuffle, repeat |
+| **Web Interface** | React SPA at `10.0.0.174:5000` — browse, play, upload, SSH terminal, plugin manager |
+| **Dual Drive** | SD card = [SYSTEM] (read-only for music); USB drives = [MUSIC], auto-pooled via mergerfs |
+| **SAMBA** | `\\10.0.0.174\MUSIC` — drag-and-drop music onto pooled drives |
+| **Recovery System** | First-boot web server at `10.0.0.174:3000` — auto-fix LCD/SSH failures |
+| **Power Efficiency** | Runs on framebuffer, no X11/Wayland, CPU governor powersave, USB autosuspend |
 
 ---
 
 ## Hardware Requirements
 
-- Raspberry Pi 3B (or 3B+)
-- Hosyond 3.5" GPIO touchscreen (LCD-35-Show driver)
-- MicroSD card (16GB+ recommended)
-- USB drive(s) for music storage
+- **Raspberry Pi 3B** or 3B+
+- **Hosyond 3.5" GPIO touchscreen** (LCD-35-Show driver)
+- MicroSD card (16GB+ recommended, 32GB+ for larger libraries)
+- USB drive(s) for music storage (FAT32, exFAT, NTFS, or ext4)
 - Optional: Bluetooth headphones/speakers
+- Optional: USB WiFi dongle if using WiFi
 
 ---
 
-## Quick Install
+## Installation
+
+### One-Line Install (recommended)
+
+Flash **Raspberry Pi OS Lite (Bookworm, 64-bit)** to your SD card. Boot the Pi, then:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/vector-just-technology/HueMedia/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/vector-just-technology/HueMedia/main/install.sh | sudo bash
 ```
 
-The installer will:
-1. Set up a **recovery web server** on `10.0.0.174:3000`
-2. Install the LCD-35-Show driver
-3. Reboot
-4. Recovery server checks all systems — if OK, proceeds with full setup
-5. Installs MPV, LVGL, Bluetooth, SAMBA, pooling, web UI
-6. Reboots into HueMedia
+### Step-by-Step Manual Install
 
-> **If something goes wrong** after the LCD install, navigate to `http://10.0.0.174:3000` to see diagnostics, re-enable SSH, or retry.
+If you prefer to understand each step or the one-liner fails:
+
+#### 1. Prepare Raspberry Pi OS
+
+Flash Raspberry Pi OS Lite (Bookworm 64-bit) to your SD card. Before booting, mount the `boot` partition and create an empty `ssh` file to enable SSH:
+
+```bash
+touch /media/$USER/boot/ssh
+```
+
+Optionally, configure WiFi by creating `/media/$USER/boot/wpa_supplicant.conf`:
+```
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+network={
+    ssid="YourWiFiSSID"
+    psk="YourWiFiPassword"
+    key_mgmt=WPA-PSK
+}
+```
+
+#### 2. Boot and Connect
+
+Insert SD card and boot the Pi. Find its IP from your router, then SSH in:
+
+```bash
+ssh pi@<pi-ip-address>
+# default password: raspberry
+```
+
+#### 3. Download and Run Installer
+
+```bash
+sudo apt update && sudo apt install -y git
+git clone https://github.com/vector-just-technology/HueMedia.git /opt/hue-media
+cd /opt/hue-media
+sudo bash install.sh
+```
+
+#### 4. What Happens During Installation
+
+```
+Phase 1 — Pre-LCD Setup
+  ├── Creates 'hue' system user
+  ├── Sets static IP 10.0.0.174
+  ├── Installs recovery web server (port 3000)
+  └── Writes phase-1 marker to /boot
+
+Phase 2 — LCD Driver
+  ├── Downloads LCD-35-Show driver
+  ├── Patches it to preserve SSH (the stock driver kills SSH!)
+  ├── Ensures SSH is enabled before reboot
+  └── Runs LCD35-show — system REBOOTS
+
+Phase 3 — Recovery & Auto-Heal (runs automatically on each boot)
+  ├── Recovery server at 10.0.0.174:3000 starts
+  ├── Checks: LCD framebuffer (/dev/fb1)?
+  ├── Checks: SSH running?
+  ├── If both OK → automatically starts Phase 4
+  └── If not → recovery web page shows status + fix buttons
+
+Phase 4 — Final Setup (triggered by recovery server)
+  ├── Installs system deps (MPV, SDL2, BlueZ, SAMBA, mergerfs, etc.)
+  ├── Creates Python venv, installs pysdl2, python-mpv, Flask
+  ├── Configures Bluetooth (A2DP + AVRCP)
+  ├── Configures SAMBA shares
+  ├── Sets up udev rules for auto-mounting USB drives
+  ├── Enables systemd services (player, API, Bluetooth)
+  ├── Removes phase-1 marker, disables recovery server
+  └── REBOOTS into HueMedia
+```
+
+### Recovery — If Something Goes Wrong
+
+If the LCD driver breaks SSH or the display doesn't work after reboot:
+
+1. Connect via Ethernet (the Pi sets IP `10.0.0.174` on eth0)
+2. Open `http://10.0.0.174:3000` in a browser
+3. The recovery page shows system status (LCD, SSH, network)
+4. Click **Enable SSH** to re-enable SSH access
+5. Click **Retry LCD Driver** to reinstall the LCD driver
+6. Click **Skip LCD (HDMI)** to continue without the GPIO display
+7. Once everything is green, click **All Good — Start Setup**
+
+If you can't reach `10.0.0.174`, your router may use a different subnet. Connect a keyboard and monitor (or use a USB serial cable) to debug.
 
 ---
 
-## Folder Structure
+## Post-Installation
 
-```
-HueMedia/
-├── install.sh                 # One-shot installer
-├── setup/                     # Modular install scripts
-├── recovery/                  # Recovery web server (port 3000)
-├── player/                    # LVGL touchscreen player
-├── server/                    # Flask API server (port 5000)
-├── web/                       # React + Vite web UI
-├── configs/                   # systemd services, udev rules, samba
-└── scripts/                   # Storage detection, pool management
-```
+After installation completes, you'll see:
 
-### Music Library Layout
+| Service | Address | Description |
+|---|---|---|
+| **Web UI** | `http://10.0.0.174:5000` | Music library, playback, bluetooth, settings, SSH terminal |
+| **SAMBA** | `\\10.0.0.174\MUSIC` | Drag-and-drop music onto pooled USB drives |
+| **SSH** | `ssh hue@10.0.0.174` | System access |
+| **LCD Display** | Built-in | Now Playing, Library, Bluetooth, Settings |
+
+### Adding Music
+
+Organize your music on any USB drive with this folder structure:
 
 ```
 /MUSIC/
@@ -86,37 +167,110 @@ HueMedia/
       cover.png
 ```
 
-Songs are sorted alphabetically by default. Shuffle and repeat are supported.
+USB drives are auto-detected and pooled at `/pool/Music`. You can also upload via the web UI or SAMBA.
+
+### Controls on the LCD
+
+| Action | How |
+|---|---|
+| Play/Pause | Tap center button |
+| Next/Prev | Tap arrows |
+| Volume | Slide the volume bar (top-right) |
+| Shuffle | Tap shuffle button |
+| Repeat | Tap repeat button |
+
+### Web Interface
+
+The web UI at `10.0.0.174:5000` mirrors the LCD and adds:
+
+- Full music library browsing and search
+- Upload songs and cover art
+- Bluetooth device pairing
+- SSH web terminal
+- System settings and resource monitor
+- Service logs viewer
 
 ---
 
-## Web Interface
+## Project Structure
 
-| Endpoint | Description |
-|---|---|
-| `http://10.0.0.174:5000` | Full web UI — music library, playback, bluetooth, settings |
-| `http://10.0.0.174:5000/terminal` | Web-based SSH terminal |
-| `http://10.0.0.174:5000/plugins` | Plugin manager |
+```
+HueMedia/
+├── install.sh                 # One-shot installer
+├── setup/                     # Modular install scripts
+│   ├── 00-utils.sh
+│   ├── 01-recovery-server.sh
+│   ├── 02-finalize.sh
+│   ├── 03-storage.sh
+│   ├── 04-bluetooth.sh
+│   ├── 05-player.sh
+│   ├── 06-samba.sh
+│   └── 07-web.sh
+├── recovery/                  # Flask recovery web server (port 3000)
+│   ├── server.py
+│   └── templates/recovery.html
+├── player/                    # SDL2 touchscreen player
+│   ├── main.py
+│   ├── engine.py              # MPV playback engine
+│   ├── library.py             # Music library scanner
+│   ├── bluetooth.py           # Bluetooth manager
+│   ├── providers.py           # Spotify, YouTube, Radio
+│   ├── config.py              # Config manager
+│   └── ui/
+│       ├── sdl_app.py         # SDL2 display + screen manager
+│       ├── widgets.py         # Button, Slider, CoverArt
+│       └── screens.py         # All 4 screen implementations
+├── server/                    # Flask API server (port 5000)
+│   ├── run.py
+│   ├── main.py
+│   ├── config.py
+│   └── api/
+│       ├── music.py
+│       ├── playback.py
+│       ├── bluetooth.py
+│       └── system.py
+├── web/                       # React + Vite web UI
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── index.html
+│   └── src/
+│       ├── App.tsx
+│       ├── api.ts
+│       ├── types.ts
+│       ├── components/
+│       └── pages/
+├── configs/                   # systemd services, udev, samba, bluetooth, alsa
+├── scripts/                   # Storage detection, IP setup
+└── demo/Music/                # Example music folder structure
+```
 
 ---
 
 ## Storage Architecture
 
-| Drive | Purpose | Writable |
-|---|---|---|
-| `/dev/mmcblk0` (SD) | System, apps, configs | Read-only for music |
-| `/mnt/music/*` (USB) | Pooled music storage | SAMBA, uploads |
-| `/pool/Music` (mergerfs) | Unified view of all music drives | — |
+| Drive | Mount | Purpose | Writable |
+|---|---|---|---|
+| SD card (`/dev/mmcblk0`) | `/` | System, apps, configs | SYSTEM only |
+| USB drive 1 | `/mnt/music/usb-1` | Music files | Yes (via SAMBA) |
+| USB drive 2 | `/mnt/music/usb-2` | Music files | Yes (via SAMBA) |
+| MergerFS pool | `/pool/Music` | Unified view of all USB drives | Yes |
+
+The [SYSTEM] drive is never used for music storage. USB drives are auto-detected when plugged in via udev rules and immediately pooled.
 
 ---
 
 ## Bluetooth Controls
 
 HueMedia supports AVRCP buttons on Bluetooth headphones:
-- **Play/Pause** — single press
-- **Next** — double press or forward
-- **Previous** — triple press or back
-- Volume control via on-screen slider or headphones
+
+| Button | Action |
+|---|---|
+| Single press center | Play / Pause |
+| Double press | Next track |
+| Triple press | Previous track |
+| Volume rocker | Volume up/down |
+
+You can also manage everything from the LCD's Bluetooth screen or the web UI.
 
 ---
 
@@ -127,12 +281,21 @@ HueMedia supports AVRCP buttons on Bluetooth headphones:
 git clone https://github.com/vector-just-technology/HueMedia.git
 cd HueMedia
 
-# Install dependencies (on RPi)
-sudo bash install.sh
+# Install deps
+pip install pysdl2 python-mpv flask flask-cors Pillow psutil
 
-# Or for development on desktop (SDL2 mode):
-pip install -r server/requirements.txt
-cd player && python main.py --sdl
+# Run player in SDL2 X11 mode (for desktop development)
+cd player
+SDL_VIDEODRIVER=x11 python main.py --sdl --debug
+
+# Run API server standalone
+cd ../server
+python run.py
+
+# Build web UI
+cd ../web
+npm install
+npm run build
 ```
 
 ---
