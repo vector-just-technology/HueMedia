@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+*.db
+instance/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# System
+.env
+*.swp
+*.swo
+*~
+
+# Build
+web/dist/
+
+# Storage (demo only)
+demo/Music/*/*/*.mp3
+demo/Music/*/*/cover.png
+
+# OS
+.DS_Store
+Thumbs.db
