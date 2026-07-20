@@ -3,13 +3,33 @@
 from pathlib import Path
 
 import sdl2
-import sdl2.sdlttf as sdlttf
-import sdl2.sdlimage as sdlimg
 
 from sdl_app import (
     WIDTH, HEIGHT, BG_CARD, BG_HEADER, ACCENT, ACCENT2,
     TEXT_WHITE, TEXT_MUTED, TEXT_RED, GREEN, PROGRESS_BG, PRESSED_BG, TRANSPARENT
 )
+
+try:
+    import sdl2.sdlttf as sdlttf
+    _HAS_TTF = True
+except ImportError:
+    try:
+        import sdl2.ttf as sdlttf
+        _HAS_TTF = True
+    except ImportError:
+        sdlttf = None
+        _HAS_TTF = False
+
+try:
+    import sdl2.sdlimage as sdlimg
+    _HAS_IMG = True
+except ImportError:
+    try:
+        import sdl2.image as sdlimg
+        _HAS_IMG = True
+    except ImportError:
+        sdlimg = None
+        _HAS_IMG = False
 
 
 class BaseScreen:
@@ -87,14 +107,11 @@ class Slider:
     def render(self, disp, fill_color=None, bg_color=None):
         fill = fill_color or ACCENT
         bg = bg_color or PROGRESS_BG
-        # Bar background
         disp.render_rect(self.rect.x, self.rect.y, self.rect.w, self.rect.h, bg, 3)
-        # Fill
         ratio = (self.value - self.min) / max(self.max - self.min, 1)
         fill_w = max(0, int(ratio * self.rect.w))
         if fill_w > 0:
             disp.render_rect(self.rect.x, self.rect.y, fill_w, self.rect.h, fill, 3)
-        # Knob
         knob_x = self.rect.x + fill_w
         knob_y = self.rect.y + self.rect.h // 2 - 5
         disp.render_rect(knob_x - 4, knob_y, 8, 10, fill, 4)
@@ -113,12 +130,19 @@ class CoverArt:
         self.path = filepath
         self._cleanup()
 
-        if filepath and Path(filepath).exists():
-            surf = sdlimg.IMG_Load(filepath.encode("utf-8"))
+        if not filepath or not Path(filepath).exists() or not _HAS_IMG or not renderer:
+            return
+
+        try:
+            path_bytes = filepath.encode("utf-8") if isinstance(filepath, str) else filepath
+            surf = sdlimg.IMG_Load(path_bytes)
             if surf:
-                if renderer:
-                    self.texture = sdl2.SDL_CreateTextureFromSurface(renderer, surf)
+                tex = sdl2.SDL_CreateTextureFromSurface(renderer, surf)
                 sdl2.SDL_FreeSurface(surf)
+                if tex:
+                    self.texture = tex
+        except Exception:
+            pass
 
     def render(self, disp):
         if self.texture:

@@ -4,20 +4,17 @@ import os
 import sys
 import time
 import signal
+import ctypes
 import logging
 from pathlib import Path
 
 import sdl2
-import sdl2.ext
-import sdl2.sdlttf as sdlttf
-import sdl2.sdlimage as sdlimg
 
 logger = logging.getLogger("ui.sdl")
 
 WIDTH, HEIGHT = 480, 320
 FPS = 30
 
-# Colors
 BG_DARK      = sdl2.SDL_Color(15, 15, 26)
 BG_CARD      = sdl2.SDL_Color(26, 26, 46)
 BG_HEADER    = sdl2.SDL_Color(13, 13, 32)
@@ -30,6 +27,60 @@ GREEN        = sdl2.SDL_Color(34, 197, 94)
 PROGRESS_BG  = sdl2.SDL_Color(42, 42, 62)
 PRESSED_BG   = sdl2.SDL_Color(42, 42, 78)
 TRANSPARENT  = sdl2.SDL_Color(0, 0, 0, 0)
+
+try:
+    import sdl2.sdlttf as sdlttf
+    _HAS_TTF = True
+except ImportError:
+    try:
+        import sdl2.ttf as sdlttf
+        _HAS_TTF = True
+    except ImportError:
+        sdlttf = None
+        _HAS_TTF = False
+        logger.warning("SDL2_ttf not available — text rendering disabled")
+
+try:
+    import sdl2.sdlimage as sdlimg
+    _HAS_IMG = True
+except ImportError:
+    try:
+        import sdl2.image as sdlimg
+        _HAS_IMG = True
+    except ImportError:
+        sdlimg = None
+        _HAS_IMG = False
+        logger.warning("SDL2_image not available — cover art disabled")
+
+
+def _safe_render_set_draw_color(renderer, color, a=255):
+    if renderer:
+        sdl2.SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, a)
+
+
+def _safe_render_clear(renderer):
+    if renderer:
+        sdl2.SDL_RenderClear(renderer)
+
+
+def _safe_render_fill_rect(renderer, rect):
+    if renderer and rect:
+        sdl2.SDL_RenderFillRect(renderer, rect)
+
+
+def _safe_render_draw_line(renderer, x1, y1, x2, y2):
+    if renderer:
+        sdl2.SDL_RenderDrawLine(renderer, x1, y1, x2, y2)
+
+
+def _safe_render_copy(renderer, texture, src, dst):
+    if renderer and texture:
+        sdl2.SDL_RenderCopy(renderer, texture, src, dst)
+
+
+def _safe_render_present(renderer):
+    if renderer:
+        sdl2.SDL_RenderPresent(renderer)
 
 
 class SDLDisplay:
@@ -45,11 +96,21 @@ class SDLDisplay:
         self.last_tick = 0
 
     def init(self):
-        sdl2.SDL_SetHint(b"SDL_FBDEV", os.environ.get("SDL_FBDEV", "/dev/fb1").encode())
-        sdl2.SDL_SetHint(b"SDL_MOUSEDRV", os.environ.get("SDL_MOUSEDRV", "evdev").encode())
-        sdl2.SDL_SetHint(b"SDL_MOUSEDEV", os.environ.get("SDL_MOUSEDEV", "/dev/input/touchscreen").encode())
+        fbdev = os.environ.get("SDL_FBDEV", "/dev/fb1")
+        sdl2.SDL_SetHint(b"SDL_FBDEV", fbdev.encode())
 
-        if sdl2.SDL_Init(sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS | sdl2.SDL_INIT_TIMER) < 0:
+        mousedev = os.environ.get("SDL_MOUSEDEV", "")
+        if not mousedev:
+            for candidate in ["/dev/input/touchscreen", "/dev/input/event0", "/dev/input/event1"]:
+                if Path(candidate).exists():
+                    mousedev = candidate
+                    break
+        if mousedev:
+            sdl2.SDL_SetHint(b"SDL_MOUSEDEV", mousedev.encode())
+        sdl2.SDL_SetHint(b"SDL_MOUSEDRV", os.environ.get("SDL_MOUSEDRV", "evdev").encode())
+
+        flags = sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS | sdl2.SDL_INIT_TIMER
+        if sdl2.SDL_Init(flags) < 0:
             logger.error(f"SDL_Init failed: {sdl2.SDL_GetError()}")
             return False
 
@@ -58,7 +119,7 @@ class SDLDisplay:
             sdl2.SDL_WINDOWPOS_UNDEFINED,
             sdl2.SDL_WINDOWPOS_UNDEFINED,
             WIDTH, HEIGHT,
-            sdl2.SDL_WINDOW_FULLSCREEN | sdl2.SDL_WINDOW_ALWAYS_ON_TOP
+            sdl2.SDL_WINDOW_FULLSCREEN
         )
         if not self.window:
             logger.error(f"SDL_CreateWindow failed: {sdl2.SDL_GetError()}")
@@ -74,39 +135,43 @@ class SDLDisplay:
 
         sdl2.SDL_ShowCursor(0)
 
-        # Init font subsystem
-        if sdlttf.TTF_Init() < 0:
-            logger.error(f"TTF_Init failed: {sdlttf.TTF_GetError()}")
-            return False
-
-        # Find a font
-        font_paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans.ttf",
-        ]
-        chosen = None
-        for fp in font_paths:
-            if Path(fp).exists():
-                chosen = fp.encode()
-                break
-        if not chosen:
-            logger.warning("No TTF font found — text will be limited")
+        if _HAS_TTF and sdlttf:
+            if sdlttf.TTF_Init() < 0:
+                logger.error(f"TTF_Init failed: {sdlttf.TTF_GetError()}")
+            else:
+                font_paths = [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+                    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+                ]
+                chosen = None
+                for fp in font_paths:
+                    if Path(fp).exists():
+                        chosen = fp.encode()
+                        break
+                if not chosen:
+                    logger.warning("No TTF font found — text will be limited")
+                else:
+                    self.font_12 = sdlttf.TTF_OpenFont(chosen, 12)
+                    self.font_14 = sdlttf.TTF_OpenFont(chosen, 14)
+                    self.font_16 = sdlttf.TTF_OpenFont(chosen, 16)
+                    self.font_20 = sdlttf.TTF_OpenFont(chosen, 20)
+                    if self.font_12:
+                        logger.info(f"Loaded font: {chosen.decode()}")
+                    else:
+                        logger.warning(f"Failed to open font: {chosen.decode()}")
         else:
-            self.font_12 = sdlttf.TTF_OpenFont(chosen, 12)
-            self.font_14 = sdlttf.TTF_OpenFont(chosen, 14)
-            self.font_16 = sdlttf.TTF_OpenFont(chosen, 16)
-            self.font_20 = sdlttf.TTF_OpenFont(chosen, 20)
-            logger.info(f"Loaded font: {chosen.decode()}")
+            logger.warning("SDL2_ttf not available — text rendering disabled")
 
         self.running = True
         self.last_tick = sdl2.SDL_GetTicks()
         return True
 
     def begin_frame(self):
-        sdl2.SDL_SetRenderDrawColor(self.renderer, BG_DARK.r, BG_DARK.g, BG_DARK.b, 255)
-        sdl2.SDL_RenderClear(self.renderer)
+        _safe_render_set_draw_color(self.renderer, BG_DARK)
+        _safe_render_clear(self.renderer)
         now = sdl2.SDL_GetTicks()
         dt = now - self.last_tick
         self.last_tick = now
@@ -114,48 +179,65 @@ class SDLDisplay:
         return dt
 
     def end_frame(self):
-        sdl2.SDL_RenderPresent(self.renderer)
-        # Cap at ~30 FPS
+        _safe_render_present(self.renderer)
         elapsed = sdl2.SDL_GetTicks() - self.last_tick
         if elapsed < (1000 // FPS):
             sdl2.SDL_Delay((1000 // FPS) - elapsed)
 
     def render_rect(self, x, y, w, h, color, radius=0):
-        rect = sdl2.SDL_Rect(x, y, w, h)
-        sdl2.SDL_SetRenderDrawColor(self.renderer, color.r, color.g, color.b, 255)
+        rect = sdl2.SDL_Rect(int(x), int(y), int(w), int(h))
+        _safe_render_set_draw_color(self.renderer, color)
         if radius > 0:
-            self._rounded_rect(rect, radius)
+            self._rounded_rect(int(x), int(y), int(w), int(h), int(radius))
         else:
-            sdl2.SDL_RenderFillRect(self.renderer, rect)
+            _safe_render_fill_rect(self.renderer, rect)
 
-    def _rounded_rect(self, rect, r):
-        x, y, w, h = rect.x, rect.y, rect.w, rect.h
-        # Draw filled rect, then corners (approximate)
+    def _rounded_rect(self, x, y, w, h, r):
+        r = min(r, w // 2, h // 2)
         inner = sdl2.SDL_Rect(x + r, y, w - 2 * r, h)
-        sdl2.SDL_RenderFillRect(self.renderer, inner)
+        _safe_render_fill_rect(self.renderer, inner)
         inner = sdl2.SDL_Rect(x, y + r, w, h - 2 * r)
-        sdl2.SDL_RenderFillRect(self.renderer, inner)
-        # Quarter circles for corners
+        _safe_render_fill_rect(self.renderer, inner)
+        # Corner quarter-circles using small filled rects (much faster than pixel loops)
         for cx, cy in [(x + r, y + r), (x + w - r - 1, y + r),
                        (x + r, y + h - r - 1), (x + w - r - 1, y + h - r - 1)]:
-            for dy in range(-r, r):
-                for dx in range(-r, r):
-                    if dx * dx + dy * dy <= r * r:
-                        px, py = cx + dx, cy + dy
-                        if x <= px < x + w and y <= py < y + h:
-                            sdl2.SDL_RenderDrawPoint(self.renderer, px, py)
+            self._fill_corner(cx, cy, r)
+
+    def _fill_corner(self, cx, cy, r):
+        if r <= 2:
+            _safe_render_fill_rect(self.renderer, sdl2.SDL_Rect(cx, cy, 1, 1))
+            return
+        step = max(1, r // 4)
+        for dy in range(0, r, step):
+            dx_max = int((r * r - dy * dy) ** 0.5)
+            if dx_max > 0:
+                col_w = min(step, dx_max)
+                if col_w > 0:
+                    for sign in [(1, 1), (-1, 1), (1, -1), (-1, -1)]:
+                        px = cx + sign[0] * (dx_max - col_w)
+                        py = cy + sign[1] * dy
+                        _safe_render_fill_rect(self.renderer, sdl2.SDL_Rect(px, py, col_w, step))
 
     def render_text(self, text, x, y, color, font=None, center_x=False, center_y=False):
         if font is None:
             font = self.font_14
-        if font is None or not text:
+        if font is None or not text or not _HAS_TTF:
             return 0, 0
 
+        if isinstance(text, str):
+            text_bytes = text.encode("utf-8")
+        else:
+            text_bytes = text
+
+        surf = None
         try:
-            surf = sdlttf.TTF_RenderUTF8_Blended(font, text.encode(), color)
+            surf = sdlttf.TTF_RenderUTF8_Blended(font, text_bytes, color)
         except Exception:
+            pass
+
+        if not surf:
             try:
-                surf = sdlttf.TTF_RenderText_Blended(font, text.encode(), color)
+                surf = sdlttf.TTF_RenderText_Blended(font, text_bytes, color)
             except Exception:
                 return 0, 0
 
@@ -167,7 +249,8 @@ class SDLDisplay:
             sdl2.SDL_FreeSurface(surf)
             return 0, 0
 
-        tw, th = surf.contents.w, surf.contents.h
+        tw = int(surf.contents.w)
+        th = int(surf.contents.h)
         rx, ry = x, y
         if center_x:
             rx = x - tw // 2
@@ -175,7 +258,7 @@ class SDLDisplay:
             ry = y - th // 2
 
         dst = sdl2.SDL_Rect(rx, ry, tw, th)
-        sdl2.SDL_RenderCopy(self.renderer, tex, None, dst)
+        _safe_render_copy(self.renderer, tex, None, dst)
         sdl2.SDL_DestroyTexture(tex)
         sdl2.SDL_FreeSurface(surf)
         return tw, th
@@ -183,23 +266,23 @@ class SDLDisplay:
     def render_texture(self, tex, x, y, w=None, h=None):
         if not tex:
             return
-        dst = sdl2.SDL_Rect(x, y, w or 0, h or 0)
-        sdl2.SDL_RenderCopy(self.renderer, tex, None, dst)
+        dst = sdl2.SDL_Rect(int(x), int(y), int(w or 0), int(h or 0))
+        _safe_render_copy(self.renderer, tex, None, dst)
 
     def render_line(self, x1, y1, x2, y2, color, width=1):
-        sdl2.SDL_SetRenderDrawColor(self.renderer, color.r, color.g, color.b, 255)
+        _safe_render_set_draw_color(self.renderer, color)
         for i in range(width):
-            sdl2.SDL_RenderDrawLine(self.renderer, x1, y1 + i, x2, y2 + i)
+            _safe_render_draw_line(self.renderer, x1, y1 + i, x2, y2 + i)
 
     def fill(self, color):
-        sdl2.SDL_SetRenderDrawColor(self.renderer, color.r, color.g, color.b, 255)
-        sdl2.SDL_RenderClear(self.renderer)
+        _safe_render_set_draw_color(self.renderer, color)
+        _safe_render_clear(self.renderer)
 
     def poll_events(self):
         events = []
         ev = sdl2.SDL_Event()
         while sdl2.SDL_PollEvent(ev):
-            etype = ev.type
+            etype = int(ev.type)
             if etype == sdl2.SDL_QUIT:
                 self.running = False
             elif etype == sdl2.SDL_FINGERDOWN:
@@ -208,7 +291,7 @@ class SDLDisplay:
                     "action": "down",
                     "x": int(ev.tfinger.x * WIDTH),
                     "y": int(ev.tfinger.y * HEIGHT),
-                    "finger_id": ev.tfinger.fingerId,
+                    "finger_id": int(ev.tfinger.fingerId),
                 })
             elif etype == sdl2.SDL_FINGERUP:
                 events.append({
@@ -216,7 +299,7 @@ class SDLDisplay:
                     "action": "up",
                     "x": int(ev.tfinger.x * WIDTH),
                     "y": int(ev.tfinger.y * HEIGHT),
-                    "finger_id": ev.tfinger.fingerId,
+                    "finger_id": int(ev.tfinger.fingerId),
                 })
             elif etype == sdl2.SDL_FINGERMOTION:
                 events.append({
@@ -224,29 +307,29 @@ class SDLDisplay:
                     "action": "move",
                     "x": int(ev.tfinger.x * WIDTH),
                     "y": int(ev.tfinger.y * HEIGHT),
-                    "finger_id": ev.tfinger.fingerId,
+                    "finger_id": int(ev.tfinger.fingerId),
                 })
             elif etype == sdl2.SDL_MOUSEBUTTONDOWN:
                 events.append({
                     "type": "mouse",
                     "action": "down",
-                    "x": ev.button.x,
-                    "y": ev.button.y,
-                    "button": ev.button.button,
+                    "x": int(ev.button.x),
+                    "y": int(ev.button.y),
+                    "button": int(ev.button.button),
                 })
             elif etype == sdl2.SDL_MOUSEBUTTONUP:
                 events.append({
                     "type": "mouse",
                     "action": "up",
-                    "x": ev.button.x,
-                    "y": ev.button.y,
-                    "button": ev.button.button,
+                    "x": int(ev.button.x),
+                    "y": int(ev.button.y),
+                    "button": int(ev.button.button),
                 })
             elif etype == sdl2.SDL_KEYDOWN:
                 events.append({
                     "type": "key",
                     "action": "down",
-                    "key": ev.key.keysym.sym,
+                    "key": int(ev.key.keysym.sym),
                 })
         return events
 
@@ -259,7 +342,8 @@ class SDLDisplay:
             sdlttf.TTF_CloseFont(self.font_14)
         if self.font_12:
             sdlttf.TTF_CloseFont(self.font_12)
-        sdlttf.TTF_Quit()
+        if _HAS_TTF and sdlttf:
+            sdlttf.TTF_Quit()
         if self.renderer:
             sdl2.SDL_DestroyRenderer(self.renderer)
         if self.window:
@@ -278,7 +362,6 @@ class ScreenManager:
         self.current = None
         self.prev_name = None
 
-        # Tab bar
         self.tabs = [
             ("now_playing", "\u266B", "Now"),
             ("library", "\u2630", "Library"),
@@ -318,7 +401,6 @@ class ScreenManager:
         if self.current:
             self.current.render()
 
-        # Tab bar
         self.disp.render_rect(0, self.tab_y, WIDTH, self.tab_h, BG_HEADER)
         self.disp.render_line(0, self.tab_y, WIDTH, self.tab_y, PROGRESS_BG, 1)
 
@@ -339,24 +421,20 @@ class ScreenManager:
 
         logger.info("SDL2 UI starting")
 
-        # Switch to initial screen
         if self.current_name is None and self.screens:
             self.switch(list(self.screens.keys())[0])
 
         while self.disp.running:
             self.disp.begin_frame()
 
-            # Poll events
             for ev in self.disp.poll_events():
                 if ev["type"] == "key" and ev["key"] == sdl2.SDLK_ESCAPE:
                     self.disp.running = False
                 self.handle_event(ev)
 
-            # Render
             self.render()
             self.disp.end_frame()
 
-            # Update display every frame
             if self.current:
                 self.current.tick()
 

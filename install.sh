@@ -91,20 +91,6 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 SERVICE
 
-cat > /opt/hue-media/scripts/setup-static-ip.sh << 'SCRIPT'
-#!/bin/bash
-IP="10.0.0.174/24"
-GW="10.0.0.1"
-DNS="8.8.8.8"
-
-for iface in eth0 wlan0; do
-  if ip link show "$iface" &>/dev/null; then
-    ip addr add "$IP" dev "$iface" 2>/dev/null || true
-    ip link set "$iface" up
-    break
-  fi
-done
-SCRIPT
 chmod +x /opt/hue-media/scripts/setup-static-ip.sh
 
 systemctl daemon-reload

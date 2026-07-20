@@ -16,27 +16,24 @@ from widgets import BaseScreen, Button, Slider, CoverArt
 logger = logging.getLogger("ui.screens")
 
 
-# ===========================================================================
-# NOW PLAYING SCREEN
-# ===========================================================================
 class NowPlayingScreen(BaseScreen):
     def __init__(self, disp, engine, library, bt_manager, sm):
         super().__init__(disp, engine, library, bt_manager, sm)
         self.cover = CoverArt(140, 28, 200)
         self.play_btn = Button(210, 268, 60, 44, "", self._toggle, ACCENT, disp.font_20, 22)
         self.play_btn.icon = "\u25B6"
-        self.prev_btn = Button(78, 275, 52, 36, "\u23EE", self.engine.previous, BG_CARD, disp.font_16)
-        self.next_btn = Button(350, 275, 52, 36, "\u23ED", self.engine.next, BG_CARD, disp.font_16)
-        self.volume_slider = Slider(370, 12, 100, 4, 0, 100, self.engine._volume)
-        self.progress_slider = None  # rendered inline
-        self.repeat_btn = Button(10, 275, 50, 36, "", self.engine.cycle_repeat, BG_CARD, disp.font_14)
-        self.shuffle_btn = Button(420, 275, 50, 36, "", self.engine.toggle_shuffle, BG_CARD, disp.font_14)
+        self.prev_btn = Button(78, 275, 52, 36, "\u23EE", engine.previous, BG_CARD, disp.font_16)
+        self.next_btn = Button(350, 275, 52, 36, "\u23ED", engine.next, BG_CARD, disp.font_16)
+        vol = engine.get_status().get("volume", 50)
+        self.volume_slider = Slider(370, 12, 100, 4, 0, 100, vol)
+        self.progress_slider = None
+        self.repeat_btn = Button(10, 275, 50, 36, "", engine.cycle_repeat, BG_CARD, disp.font_14)
+        self.shuffle_btn = Button(420, 275, 50, 36, "", engine.toggle_shuffle, BG_CARD, disp.font_14)
         self._update_icons()
 
     def _update_icons(self):
         cfg = self.engine.get_status()
-        self.repeat_btn.icon = {0: "\u21BB", 1: "\u21BB", 2: "\u21BB"}.get({"off":0,"all":1,"one":2}.get(cfg.get("repeat","off"),0), "\u21BB")
-        rpt = cfg.get("repeat","off")
+        rpt = cfg.get("repeat", "off")
         if rpt == "off":
             self.repeat_btn.icon = "\u21BB"
             self.repeat_btn.color = BG_CARD
@@ -61,21 +58,22 @@ class NowPlayingScreen(BaseScreen):
         track = s.get("current")
         if track:
             self.cover.load(track.get("cover"), self.disp.renderer)
-        # Volume sync
         self.volume_slider.value = s.get("volume", 50)
         self._update_icons()
 
     def handle_event(self, ev):
         if ev["action"] == "down":
+            x, y = ev["x"], ev["y"]
             for btn in [self.play_btn, self.prev_btn, self.next_btn, self.repeat_btn, self.shuffle_btn]:
-                if btn.hit_test(ev["x"], ev["y"]):
+                if btn.hit_test(x, y):
                     btn.pressed = True
-            if self.volume_slider.hit_test(ev["x"], ev["y"]):
+            if self.volume_slider.hit_test(x, y):
                 self.volume_slider.dragging = True
 
         elif ev["action"] == "up":
+            x, y = ev["x"], ev["y"]
             for btn in [self.play_btn, self.prev_btn, self.next_btn, self.repeat_btn, self.shuffle_btn]:
-                if btn.pressed and btn.hit_test(ev["x"], ev["y"]) and btn.callback:
+                if btn.pressed and btn.hit_test(x, y) and btn.callback:
                     btn.callback()
                     self._update_icons()
                     self.play_btn.icon = "\u23F8" if self.engine.get_status().get("state")=="playing" else "\u25B6"
@@ -83,7 +81,7 @@ class NowPlayingScreen(BaseScreen):
 
             if self.volume_slider.dragging:
                 self.volume_slider.dragging = False
-                self.volume_slider.set_from_x(ev["x"])
+                self.volume_slider.set_from_x(x)
                 self.engine.set_volume(int(self.volume_slider.value))
 
         elif ev["action"] == "move":
@@ -94,23 +92,18 @@ class NowPlayingScreen(BaseScreen):
         s = self.engine.get_status()
         track = s.get("current")
 
-        # Volume bar top-right
         self.volume_slider.render(self.disp, ACCENT2)
         vol_label = str(int(s.get("volume", 50)))
         self.disp.render_text(vol_label, WIDTH - 20, 4, TEXT_MUTED, self.disp.font_12)
 
-        # Cover art
         self.cover.render(self.disp)
 
         if track:
-            # Artist name
             self.disp.render_text(track.get("artist", ""), WIDTH // 2, 8, TEXT_MUTED, self.disp.font_12, center_x=True)
 
-            # Song title
             title = track.get("title", "")
             self.disp.render_text(title, WIDTH // 2, 232, TEXT_WHITE, self.disp.font_16, center_x=True)
 
-            # Progress bar
             pos = s.get("position", 0)
             dur = s.get("duration", 0)
             if dur > 0:
@@ -121,7 +114,6 @@ class NowPlayingScreen(BaseScreen):
                 if fill_w > 0:
                     self.disp.render_rect(bar_x, bar_y, fill_w, 4, ACCENT, 2)
 
-            # Time
             def fmt(s):
                 m, sec = divmod(int(s), 60)
                 return f"{m}:{sec:02d}"
@@ -131,20 +123,15 @@ class NowPlayingScreen(BaseScreen):
             self.disp.render_text("No track playing", WIDTH // 2, 240, TEXT_MUTED, self.disp.font_14, center_x=True)
             self.disp.render_text("Browse Library or add music via SAMBA", WIDTH // 2, 260, TEXT_MUTED, self.disp.font_12, center_x=True)
 
-        # Control buttons
         self.prev_btn.render(self.disp)
         self.play_btn.render(self.disp)
         self.next_btn.render(self.disp)
         self.repeat_btn.render(self.disp)
         self.shuffle_btn.render(self.disp)
 
-        # Bottom divider
         self.disp.render_line(0, HEIGHT - 33, WIDTH, HEIGHT - 33, PROGRESS_BG, 1)
 
 
-# ===========================================================================
-# LIBRARY SCREEN
-# ===========================================================================
 class LibraryScreen(BaseScreen):
     def __init__(self, disp, engine, library, bt_manager, sm):
         super().__init__(disp, engine, library, bt_manager, sm)
@@ -180,7 +167,6 @@ class LibraryScreen(BaseScreen):
             self.scroll_start_y = self.scroll_y
             self.dragging = True
 
-            # Check item tap
             items = self.songs if self.selected_artist else self.artists
             idx = (y - self.lib_y + self.scroll_y) // self.item_h
             if 0 <= idx < len(items):
@@ -205,7 +191,6 @@ class LibraryScreen(BaseScreen):
             self.songs = self.selected_artist.get("songs", [])
 
     def render(self):
-        # Header
         self.disp.render_rect(0, 0, WIDTH, 36, BG_HEADER)
         title = self.selected_artist["name"] if self.selected_artist else "Library"
         self.disp.render_text(title, WIDTH // 2, 10, TEXT_WHITE, self.disp.font_16, center_x=True)
@@ -231,8 +216,6 @@ class LibraryScreen(BaseScreen):
 
             if self.selected_artist:
                 name = item.get("title", "")
-                if item.get("is_video"):
-                    name = "\uD83C\uDFAC " + name
                 self.disp.render_text(name, 20, y + (self.item_h - 4) // 2, TEXT_WHITE, self.disp.font_14, center_y=True)
             else:
                 artist = item if isinstance(item, dict) else {"name": str(item), "count": 0}
@@ -242,9 +225,6 @@ class LibraryScreen(BaseScreen):
                 self.disp.render_text(f"{count}", WIDTH - 30, y + (self.item_h - 4) // 2, TEXT_MUTED, self.disp.font_12, center_y=True)
 
 
-# ===========================================================================
-# BLUETOOTH SCREEN
-# ===========================================================================
 class BluetoothScreen(BaseScreen):
     def __init__(self, disp, engine, library, bt_manager, sm):
         super().__init__(disp, engine, library, bt_manager, sm)
@@ -273,7 +253,6 @@ class BluetoothScreen(BaseScreen):
             self.scroll_start_y = self.scroll_y
             self.dragging = True
 
-            # Tap on device
             devices = self.bt.get_status().get("available", [])
             idx = (y - 40 + self.scroll_y) // 48
             if 0 <= idx < len(devices):
@@ -295,24 +274,21 @@ class BluetoothScreen(BaseScreen):
     def render(self):
         s = self.bt.get_status()
 
-        # Header
         self.disp.render_rect(0, 0, WIDTH, 36, BG_HEADER)
         self.disp.render_text("Bluetooth", WIDTH // 2, 10, TEXT_WHITE, self.disp.font_16, center_x=True)
         self.scan_btn.color = GREEN if s.get("scanning") else ACCENT
         self.scan_btn.label = "Scanning.." if s.get("scanning") else "Scan"
         self.scan_btn.render(self.disp)
 
-        # Connected device
         connected = s.get("connected")
         if connected:
             self.disp.render_rect(8, 40, WIDTH - 16, 36, sdl2.SDL_Color(26, 58, 26), 8)
-            self.disp.render_text("\uD83D\uDD0A", 20, 58, GREEN, self.disp.font_14)
+            self.disp.render_text("[BT]", 20, 58, GREEN, self.disp.font_14)
             self.disp.render_text(connected.get("name", ""), 44, 52, TEXT_WHITE, self.disp.font_14)
             self.disp.render_text(connected.get("mac", ""), 44, 68, TEXT_MUTED, self.disp.font_12)
         else:
             self.disp.render_text("No device connected", WIDTH // 2, 54, TEXT_MUTED, self.disp.font_14, center_x=True)
 
-        # Device list
         devices = s.get("available", [])
         if not devices:
             self.disp.render_text("Tap Scan to discover devices", WIDTH // 2, 90, TEXT_MUTED, self.disp.font_12, center_x=True)
@@ -336,9 +312,6 @@ class BluetoothScreen(BaseScreen):
                     self.disp.render_text("Connected", WIDTH - 90, y + 14, GREEN, self.disp.font_12)
 
 
-# ===========================================================================
-# SETTINGS SCREEN
-# ===========================================================================
 class SettingsScreen(BaseScreen):
     def __init__(self, disp, engine, library, bt_manager, sm):
         super().__init__(disp, engine, library, bt_manager, sm)
@@ -352,7 +325,7 @@ class SettingsScreen(BaseScreen):
             ("reboot", "Reboot System"),
             ("shutdown", "Shutdown"),
             ("restart", "Restart Player"),
-            ("version", f"Version 1.0"),
+            ("version", "Version 1.0"),
         ]
 
     def handle_event(self, ev):
@@ -385,7 +358,6 @@ class SettingsScreen(BaseScreen):
             self.dragging = False
 
     def render(self):
-        # Header
         self.disp.render_rect(0, 0, WIDTH, 36, BG_HEADER)
         self.disp.render_text("Settings", WIDTH // 2, 10, TEXT_WHITE, self.disp.font_16, center_x=True)
 

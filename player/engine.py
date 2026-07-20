@@ -7,8 +7,6 @@ import logging
 from pathlib import Path
 from typing import Optional, Callable
 
-import mpv
-
 from config import load_config, save_config
 
 logger = logging.getLogger("engine")
@@ -31,6 +29,7 @@ class PlaybackEngine:
 
     def _init_mpv(self):
         try:
+            import mpv
             self._mpv = mpv.MPV(
                 input_default_bindings=True,
                 input_vo_keyboard=True,
@@ -59,6 +58,9 @@ class PlaybackEngine:
         except Exception as e:
             logger.error(f"Failed to initialize MPV: {e}")
             self._state = "error"
+
+    def _mpv_ok(self):
+        return self._mpv is not None
 
     def _on_property_change(self, name, value):
         if name == "time-pos" and value is not None:
@@ -96,17 +98,21 @@ class PlaybackEngine:
         }
 
     def play(self, track: dict):
+        if not self._mpv_ok():
+            logger.warning("MPV not available")
+            return
         path = track.get("path")
         if not path or not Path(path).exists():
             logger.error(f"Track not found: {path}")
             return
-
         self._current_track = track
         self._mpv.play(path)
         self._state = "loading"
         self._notify()
 
     def play_file(self, filepath: str):
+        if not self._mpv_ok():
+            return
         path = Path(filepath)
         if not path.exists():
             return
@@ -120,12 +126,16 @@ class PlaybackEngine:
         self.play(track)
 
     def toggle_pause(self):
+        if not self._mpv_ok():
+            return
         if self._state == "playing":
             self._mpv.pause = True
         elif self._state == "paused":
             self._mpv.pause = False
 
     def stop(self):
+        if not self._mpv_ok():
+            return
         self._mpv.stop()
         self._state = "stopped"
         self._position = 0.0
@@ -133,14 +143,19 @@ class PlaybackEngine:
         self._notify()
 
     def seek(self, position: float):
+        if not self._mpv_ok():
+            return
         self._mpv.seek(position, "absolute")
 
     def seek_relative(self, delta: float):
+        if not self._mpv_ok():
+            return
         self._mpv.seek(delta, "relative")
 
     def set_volume(self, vol: int):
         self._volume = max(0, min(100, vol))
-        self._mpv.volume = self._volume
+        if self._mpv_ok():
+            self._mpv.volume = self._volume
         cfg = load_config()
         cfg["volume"] = self._volume
         save_config(cfg)
@@ -223,4 +238,7 @@ class PlaybackEngine:
 
     def cleanup(self):
         if self._mpv:
-            self._mpv.terminate()
+            try:
+                self._mpv.terminate()
+            except Exception:
+                pass

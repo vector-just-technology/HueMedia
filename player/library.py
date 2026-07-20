@@ -18,6 +18,7 @@ class MusicLibrary:
         self._artists = {}
         self._tracks = []
         self._scanning = False
+        self._lock = threading.Lock()
         self._listeners = []
 
     def add_listener(self, cb):
@@ -38,8 +39,8 @@ class MusicLibrary:
         def _scan():
             cfg = load_config()
             dirs = cfg.get("music_dirs", ["/pool/Music", os.path.expanduser("~/Music")])
-            artists = {}
-            tracks = []
+            new_artists = {}
+            new_tracks = []
             idx = 0
 
             for music_dir in dirs:
@@ -76,7 +77,7 @@ class MusicLibrary:
                                 "duration": 0.0,
                             }
                             songs.append(track)
-                            tracks.append(track)
+                            new_tracks.append(track)
                             idx += 1
 
                         video_files = sorted(
@@ -95,18 +96,19 @@ class MusicLibrary:
                                 "is_video": True,
                             }
                             songs.append(track)
-                            tracks.append(track)
+                            new_tracks.append(track)
                             idx += 1
 
                     if songs:
-                        artists[artist_name] = {
+                        new_artists[artist_name] = {
                             "name": artist_name,
                             "songs": songs,
                             "count": len(songs),
                         }
 
-            self._artists = dict(sorted(artists.items()))
-            self._tracks = tracks
+            with self._lock:
+                self._artists = dict(sorted(new_artists.items()))
+                self._tracks = new_tracks
             self._cache()
             self._scanning = False
             self._notify()
@@ -114,26 +116,31 @@ class MusicLibrary:
         threading.Thread(target=_scan, daemon=True).start()
 
     def get_artists(self) -> List[dict]:
-        return list(self._artists.values())
+        with self._lock:
+            return list(self._artists.values())
 
     def get_artist(self, name: str) -> Optional[dict]:
-        return self._artists.get(name)
+        with self._lock:
+            return self._artists.get(name)
 
     def get_all_tracks(self) -> List[dict]:
-        return list(self._tracks)
+        with self._lock:
+            return list(self._tracks)
 
     def get_track_by_id(self, tid: int) -> Optional[dict]:
-        for t in self._tracks:
-            if t["id"] == tid:
-                return t
-        return None
+        with self._lock:
+            for t in self._tracks:
+                if t["id"] == tid:
+                    return t
+            return None
 
     def search(self, query: str) -> List[dict]:
         q = query.lower()
         results = []
-        for t in self._tracks:
-            if q in t["title"].lower() or q in t["artist"].lower() or q in t["album"].lower():
-                results.append(t)
+        with self._lock:
+            for t in self._tracks:
+                if q in t["title"].lower() or q in t["artist"].lower() or q in t["album"].lower():
+                    results.append(t)
         return results
 
     @staticmethod
@@ -146,20 +153,21 @@ class MusicLibrary:
 
     def _cache(self):
         try:
-            data = {
-                "artists": {k: {
-                    "name": v["name"],
-                    "count": v["count"],
-                    "songs": [{
-                        "id": s["id"],
-                        "path": s["path"],
-                        "title": s["title"],
-                        "artist": s["artist"],
-                        "album": s["album"],
-                        "cover": s["cover"],
-                    } for s in v["songs"]]
-                } for k, v in self._artists.items()}
-            }
+            with self._lock:
+                data = {
+                    "artists": {k: {
+                        "name": v["name"],
+                        "count": v["count"],
+                        "songs": [{
+                            "id": s["id"],
+                            "path": s["path"],
+                            "title": s["title"],
+                            "artist": s["artist"],
+                            "album": s["album"],
+                            "cover": s["cover"],
+                        } for s in v["songs"]]
+                    } for k, v in self._artists.items()}
+                }
             with open(LIBRARY_CACHE, "w") as f:
                 json.dump(data, f)
         except Exception:
@@ -170,11 +178,14 @@ class MusicLibrary:
             try:
                 with open(LIBRARY_CACHE) as f:
                     data = json.load(f)
-                self._artists = data.get("artists", {})
-                self._tracks = []
-                for artist_data in self._artists.values():
+                artists = data.get("artists", {})
+                tracks = []
+                for artist_data in artists.values():
                     for s in artist_data.get("songs", []):
-                        self._tracks.append(s)
+                        tracks.append(s)
+                with self._lock:
+                    self._artists = artists
+                    self._tracks = tracks
                 return True
             except Exception:
                 return False

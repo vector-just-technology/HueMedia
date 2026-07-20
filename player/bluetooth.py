@@ -62,21 +62,24 @@ class BluetoothManager:
 
             self._devices = devices
 
-            # Check connected device
+            # Check connected device via bluetoothctl info
             result = subprocess.run(
                 ["bluetoothctl", "--", "info"],
                 capture_output=True, text=True, timeout=5
             )
             connected = None
-            if "Connected: yes" in result.stdout:
-                for d in devices:
-                    if d["mac"] in result.stdout:
-                        connected = d
-                        break
-                if not connected:
-                    m = re.search(r"Device (\S+)", result.stdout)
-                    if m:
-                        connected = {"mac": m.group(1), "name": "Unknown"}
+            stdout = result.stdout
+            if "Connected: yes" in stdout:
+                # Extract MAC from info output
+                m = re.search(r"Device\s+(\S+)", stdout)
+                if m:
+                    info_mac = m.group(1)
+                    for d in devices:
+                        if d["mac"] == info_mac or d["mac"].replace(":", "") == info_mac.replace(":", ""):
+                            connected = d
+                            break
+                    if not connected:
+                        connected = {"mac": info_mac, "name": "Unknown"}
             self._connected = connected
             self._notify()
         except Exception as e:
@@ -110,11 +113,11 @@ class BluetoothManager:
                 ["bluetoothctl", "--", "pair", mac],
                 capture_output=True, timeout=15
             )
-            result = subprocess.run(
+            subprocess.run(
                 ["bluetoothctl", "--", "trust", mac],
                 capture_output=True, timeout=5
             )
-            result = subprocess.run(
+            subprocess.run(
                 ["bluetoothctl", "--", "connect", mac],
                 capture_output=True, timeout=15
             )
