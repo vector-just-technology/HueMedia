@@ -42,7 +42,7 @@ fi
 
 log "Reloading systemd and re-enabling services"
 systemctl daemon-reload 2>/dev/null || true
-for svc in hue-auto-update hue-player hue-api hue-bluetooth hue-automount; do
+for svc in hue-auto-update hue-api hue-bluetooth hue-automount; do
   systemctl enable "$svc.service" 2>/dev/null || true
 done
 

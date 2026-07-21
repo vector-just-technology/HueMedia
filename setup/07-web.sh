@@ -19,7 +19,6 @@ Wants=local-fs.target
 Type=simple
 User=hue
 WorkingDirectory=/opt/hue-media/server
-ExecStartPre=/bin/bash -c 'while ! mountpoint -q /pool/Music 2>/dev/null && [ ! -f /opt/hue-media/.setup-complete ]; do sleep 2; done'
 ExecStart=/opt/hue-media/player/.venv/bin/python /opt/hue-media/server/run.py
 Restart=always
 RestartSec=3

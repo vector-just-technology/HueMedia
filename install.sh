@@ -18,20 +18,13 @@ echo " |  _  |  __/  __/ | |  | |  __/| | |_\__ \\"
 echo " |_| |_|\___|\___| |_|  |_|\___|/ |\__|___/"
 echo "                             |__/           "
 echo -e "${NC}"
-echo "  Lightweight Media Player for Raspberry Pi 3B"
+echo "  HueMedia Media Player"
 echo "========================================================="
 
 if [ "$(id -u)" -ne 0 ]; then
   echo ""
   err "Must run as root (use sudo)"
   exit 1
-fi
-
-head "System Check"
-if [ -f /proc/device-tree/model ]; then
-  log "Detected: $(tr -d '\0' < /proc/device-tree/model)"
-else
-  warn "Not a Raspberry Pi — proceeding anyway"
 fi
 
 head "Setting up HueMedia user"
@@ -68,4 +61,4 @@ head "System Setup"
 bash setup/02-finalize.sh
 
 echo ""
-log "Installation complete — HueMedia will start on next boot"
+log "Installation complete — reboot to start HueMedia"

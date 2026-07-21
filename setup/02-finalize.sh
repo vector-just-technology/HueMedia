@@ -13,11 +13,11 @@ if has_cmd apt; then
   apt-get update 2>&1 | tail -3 || warn "apt update failed — continuing anyway"
 
   log "Installing packages..."
-  for pkg in python3 python3-pip python3-venv python3-sdl2 libsdl2-dev \
-      libsdl2-ttf-dev libsdl2-image-dev libsdl2-mixer-dev cmake build-essential \
-      mpv libmpv-dev bluez bluez-tools pulseaudio-module-bluetooth \
+  for pkg in python3 python3-pip python3-venv cmake build-essential \
+      mpv libmpv-dev bluez bluez-tools \
       samba samba-common-bin mergerfs exfat-fuse exfatprogs ntfs-3g \
-      udisks2 git curl wget alsa-utils python3-dbus i2c-tools xinput-calibrator; do
+      udisks2 git curl wget alsa-utils python3-dbus i2c-tools \
+      lightdm chromium-browser matchbox-window-manager xserver-xorg; do
     DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" 2>&1 | tail -1 || warn "Failed to install $pkg — continuing"
   done
 fi
@@ -34,10 +34,6 @@ fi
 if [ -f "$PLAYER_DIR/requirements.txt" ]; then
   log "Installing player dependencies..."
   "$VENV_DIR/bin/pip" install -r "$PLAYER_DIR/requirements.txt" 2>&1 | tail -3 || warn "pip install failed"
-fi
-
-if has_cmd apt; then
-  apt-get install -y python3-pysdl2 2>/dev/null || true
 fi
 
 SERVER_DIR="$INSTALL_DIR/server"
@@ -65,7 +61,7 @@ bash "$SCRIPT_DIR/07-web.sh"
 
 head "Enabling Services"
 systemctl daemon-reload 2>/dev/null || true
-for svc in hue-auto-update hue-player hue-api hue-bluetooth hue-automount; do
+for svc in hue-auto-update hue-api hue-bluetooth hue-automount; do
   if [ -f "/etc/systemd/system/$svc.service" ]; then
     systemctl enable "$svc.service" 2>/dev/null && log "Enabled $svc" || warn "Could not enable $svc"
   fi
