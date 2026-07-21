@@ -63,10 +63,19 @@ else
 fi
 
 head "Cloning Repository"
+export GIT_TERMINAL_PROMPT=0
 if [ -d "$INSTALL_DIR" ]; then
-  warn "Directory $INSTALL_DIR exists — updating"
-  cd "$INSTALL_DIR"
-  git pull --ff-only 2>/dev/null || true
+  if [ -d "$INSTALL_DIR/.git" ]; then
+    log "Updating existing repository"
+    cd "$INSTALL_DIR"
+    git remote set-url origin "$REPO" 2>/dev/null || true
+    git fetch origin 2>&1 | tail -2
+    git reset --hard origin/main 2>&1 | tail -1
+  else
+    warn "Directory exists but not a git repo — re-cloning"
+    rm -rf "$INSTALL_DIR"
+    git clone "$REPO" "$INSTALL_DIR"
+  fi
 else
   log "Cloning into $INSTALL_DIR"
   git clone "$REPO" "$INSTALL_DIR"
