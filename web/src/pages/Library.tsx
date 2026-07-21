@@ -76,7 +76,7 @@ export default function Library({ onPlay }: LibraryProps) {
       </div>
       {artists.length === 0 ? (
         <p style={{ color: '#666', textAlign: 'center', marginTop: '40px' }}>
-          No music found. Add files via SAMBA at <code>\\10.0.0.174\MUSIC</code>
+          No music found. Add files via SAMBA at <code>\\{window.location.hostname}\MUSIC</code>
         </p>
       ) : (
         <div style={styles.artistList}>

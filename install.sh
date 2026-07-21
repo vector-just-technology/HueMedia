@@ -75,27 +75,6 @@ chown -R "$HUE_USER:$HUE_USER" "$INSTALL_DIR"
 
 cd "$INSTALL_DIR"
 
-head "Static IP Configuration"
-cat > /etc/systemd/system/hue-static-ip.service << 'SERVICE'
-[Unit]
-Description=HueMedia static IP configuration
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/bash /opt/hue-media/scripts/setup-static-ip.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-
-chmod +x /opt/hue-media/scripts/setup-static-ip.sh
-
-systemctl daemon-reload
-systemctl enable hue-static-ip.service
-log "Static IP service enabled (activates on next boot)"
-
 # ---------------------------------------------------------------------------
 # Install all system dependencies and services
 # ---------------------------------------------------------------------------

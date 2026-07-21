@@ -59,4 +59,5 @@ fi
 
 # Enable API service
 systemctl enable hue-api.service
-log "Web interface: http://10.0.0.174:5000"
+PI_IP=$(hostname -I | awk '{print $1}')
+log "Web interface: http://${PI_IP}:5000"

@@ -45,4 +45,5 @@ cat > /etc/samba/smb.conf << 'SAMBA'
 SAMBA
 
 systemctl restart smbd
-log "SAMBA shares available at \\\\10.0.0.174\\MUSIC and \\\\10.0.0.174\\SYSTEM"
+PI_IP=$(hostname -I | awk '{print $1}')
+log "SAMBA shares available at \\\\${PI_IP}\\MUSIC and \\\\${PI_IP}\\SYSTEM"

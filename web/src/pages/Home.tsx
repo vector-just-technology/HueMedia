@@ -53,7 +53,7 @@ export default function Home({ status, onPlay }: HomeProps) {
           <h1 style={styles.welcomeTitle}>HueMedia</h1>
           <p style={styles.welcomeText}>
             Your music, beautifully simple.
-            Browse your library or drop files via SAMBA at <code>\\10.0.0.174\MUSIC</code>
+            Browse your library or drop files via SAMBA at <code>\\{window.location.hostname}\MUSIC</code>
           </p>
           <div style={styles.stats}>
             <div style={styles.stat}>

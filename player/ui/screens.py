@@ -146,6 +146,18 @@ class LibraryScreen(BaseScreen):
         self.touch_start_y = 0
         self.scroll_start_y = 0
         self.dragging = False
+        self._cached_ip = None
+
+    @staticmethod
+    def _get_ip():
+        try:
+            result = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=2)
+            ip = result.stdout.strip().split()[0]
+            if ip:
+                return ip
+        except Exception:
+            pass
+        return "<pi-ip>"
 
     def on_show(self):
         self.artists = self.library.get_artists()
@@ -200,7 +212,8 @@ class LibraryScreen(BaseScreen):
         items = self.songs if self.selected_artist else self.artists
         if not items:
             self.disp.render_text("No music found", WIDTH // 2, HEIGHT // 2, TEXT_MUTED, self.disp.font_14, center_x=True)
-            self.disp.render_text("Add via SAMBA: \\\\10.0.0.174\\MUSIC", WIDTH // 2, HEIGHT // 2 + 20, TEXT_MUTED, self.disp.font_12, center_x=True)
+            ip = self._get_ip()
+            self.disp.render_text(f"Add via SAMBA: \\\\{ip}\\MUSIC", WIDTH // 2, HEIGHT // 2 + 20, TEXT_MUTED, self.disp.font_12, center_x=True)
             return
 
         start_idx = max(0, self.scroll_y // self.item_h)

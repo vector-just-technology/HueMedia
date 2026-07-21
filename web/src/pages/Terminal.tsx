@@ -47,7 +47,7 @@ export default function Terminal() {
       <div style={styles.toolbar}>
         <span style={styles.toolbarTitle}>SSH Terminal</span>
         <div style={styles.toolbarActions}>
-          <span style={styles.toolbarInfo}>hue@10.0.0.174</span>
+          <span style={styles.toolbarInfo}>hue@{window.location.hostname}</span>
           {history.length > 0 && (
             <button style={styles.clearBtn} onClick={handleClear}>Clear</button>
           )}

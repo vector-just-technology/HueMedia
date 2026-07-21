@@ -23,9 +23,9 @@ A lightweight, touch-optimized media player for **Raspberry Pi 3B**. SDL2-based 
 | **Spotify / YouTube** | Stream via yt-dlp + MPV; Spotify via librespot |
 | **Cover Art** | Reads `cover.png` per song folder, displays on both LCD and web UI |
 | **Music Library** | Auto-scans `Music/Artist/Song/song.mp3 + cover.png` — alphabetical sort, shuffle, repeat |
-| **Web Interface** | React SPA at `10.0.0.174:5000` — browse, play, upload, SSH terminal, plugin manager |
+| **Web Interface** | React SPA at `<pi-ip>:5000` — browse, play, upload, SSH terminal, plugin manager |
 | **Dual Drive** | SD card = [SYSTEM] (read-only for music); USB drives = [MUSIC], auto-pooled via mergerfs |
-| **SAMBA** | `\\10.0.0.174\MUSIC` — drag-and-drop music onto pooled drives |
+| **SAMBA** | `\\<pi-ip>\MUSIC` — drag-and-drop music onto pooled drives |
 | **Power Efficiency** | Runs on framebuffer, no X11/Wayland, CPU governor powersave, USB autosuspend |
 
 ---
@@ -94,7 +94,6 @@ sudo bash install.sh
 
 ```
   ├── Creates 'hue' system user
-  ├── Sets static IP 10.0.0.174
   ├── Installs system deps (MPV, SDL2, BlueZ, SAMBA, mergerfs, etc.)
   ├── Creates Python venv, installs pysdl2, python-mpv, Flask
   ├── Configures Bluetooth (A2DP + AVRCP)
@@ -112,9 +111,9 @@ After installation completes, you'll see:
 
 | Service | Address | Description |
 |---|---|---|
-| **Web UI** | `http://10.0.0.174:5000` | Music library, playback, bluetooth, settings, SSH terminal |
-| **SAMBA** | `\\10.0.0.174\MUSIC` | Drag-and-drop music onto pooled USB drives |
-| **SSH** | `ssh hue@10.0.0.174` | System access |
+| **Web UI** | `http://<pi-ip>:5000` | Music library, playback, bluetooth, settings, SSH terminal |
+| **SAMBA** | `\\<pi-ip>\MUSIC` | Drag-and-drop music onto pooled USB drives |
+| **SSH** | `ssh hue@<pi-ip>` | System access |
 | **Display** | Built-in | Now Playing, Library, Bluetooth, Settings |
 
 ### Adding Music
@@ -146,7 +145,7 @@ USB drives are auto-detected and pooled at `/pool/Music`. You can also upload vi
 
 ### Web Interface
 
-The web UI at `10.0.0.174:5000` mirrors the LCD and adds:
+The web UI at `<pi-ip>:5000` mirrors the LCD and adds:
 
 - Full music library browsing and search
 - Upload songs and cover art

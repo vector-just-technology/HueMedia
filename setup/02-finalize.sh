@@ -121,10 +121,11 @@ touch /opt/hue-media/.setup-complete
 
 log "HueMedia setup complete!"
 echo ""
+PI_IP=$(hostname -I | awk '{print $1}')
 echo -e "  ${GREEN}Display Player:${NC}  Starts automatically"
-echo -e "  ${GREEN}Web Interface:${NC}   http://10.0.0.174:5000"
-echo -e "  ${GREEN}SAMBA Share:${NC}     \\\\10.0.0.174\\music"
-echo -e "  ${GREEN}SSH Access:${NC}      ssh hue@10.0.0.174"
+echo -e "  ${GREEN}Web Interface:${NC}   http://${PI_IP}:5000"
+echo -e "  ${GREEN}SAMBA Share:${NC}     \\\\${PI_IP}\\music"
+echo -e "  ${GREEN}SSH Access:${NC}      ssh hue@${PI_IP}"
 echo ""
 
 rm -f /tmp/hue-media-setup
