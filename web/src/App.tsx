@@ -6,11 +6,13 @@ import PlayerBar from './components/PlayerBar'
 import Home from './pages/Home'
 import Library from './pages/Library'
 import Search from './pages/Search'
+import Stream from './pages/Stream'
+import Downloads from './pages/Downloads'
 import Bluetooth from './pages/Bluetooth'
 import Settings from './pages/Settings'
 import Terminal from './pages/Terminal'
 
-type Page = 'home' | 'library' | 'search' | 'bluetooth' | 'settings' | 'terminal'
+type Page = 'home' | 'library' | 'search' | 'stream' | 'downloads' | 'bluetooth' | 'settings' | 'terminal'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
@@ -35,6 +37,8 @@ export default function App() {
     home: <Home status={status} onPlay={refreshStatus} />,
     library: <Library onPlay={refreshStatus} />,
     search: <Search onPlay={refreshStatus} />,
+    stream: <Stream onPlay={refreshStatus} />,
+    downloads: <Downloads onPlay={refreshStatus} />,
     bluetooth: <Bluetooth />,
     settings: <Settings />,
     terminal: <Terminal />,

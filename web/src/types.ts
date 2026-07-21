@@ -49,3 +49,18 @@ export interface StorageInfo {
   drives: { name: string; path: string; total: number; free: number; mounted: boolean }[]
   pool: { total: number; free: number; mounted: boolean }
 }
+
+export interface StreamTrack {
+  id: string
+  title: string
+  artist: string
+  channel?: string
+  album?: string
+  duration: number
+  url: string
+  source: 'youtube' | 'spotify' | 'radio' | 'saved'
+  youtube_id?: string
+  cover: string
+  is_video?: boolean
+  path?: string
+}

@@ -4,6 +4,8 @@ const navItems: { id: string; label: string; icon: string }[] = [
   { id: 'home', label: 'Home', icon: '\u2302' },
   { id: 'library', label: 'Library', icon: '\u266B' },
   { id: 'search', label: 'Search', icon: '\u2315' },
+  { id: 'stream', label: 'Stream', icon: '\u25CF' },
+  { id: 'downloads', label: 'Saved', icon: '\u2B07' },
   { id: 'bluetooth', label: 'Bluetooth', icon: '\u2248' },
   { id: 'settings', label: 'Settings', icon: '\u2699' },
   { id: 'terminal', label: 'Terminal', icon: '\u276F' },

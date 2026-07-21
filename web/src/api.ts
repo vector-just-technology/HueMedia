@@ -1,4 +1,4 @@
-import type { PlaybackStatus, Artist, Track, BluetoothStatus, ResourceInfo, StorageInfo } from './types'
+import type { PlaybackStatus, Artist, Track, BluetoothStatus, ResourceInfo, StorageInfo, StreamTrack } from './types'
 
 const BASE = '/api'
 
@@ -14,6 +14,12 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   })
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
+  return res.json()
+}
+
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
   return res.json()
 }
@@ -58,6 +64,16 @@ export const api = {
   btConnect: (mac: string) => post('/bluetooth/connect', { mac }),
   btDisconnect: () => post('/bluetooth/disconnect'),
   btForget: (mac: string) => post('/bluetooth/forget', { mac }),
+
+  // Streaming
+  streamSearch: (query: string, source?: string, video?: boolean) =>
+    post<{ results: StreamTrack[] }>('/stream/search', { query, source, video }),
+  streamPlay: (url: string, source: string, title: string, artist: string, cover?: string, video?: boolean) =>
+    post<PlaybackStatus>('/stream/play', { url, source, title, artist, cover, video }),
+  streamDownload: (url: string, source: string, title: string, artist: string, cover?: string, video?: boolean) =>
+    post<{ status: string; path: string }>('/stream/download', { url, source, title, artist, cover, video }),
+  streamDownloads: () => get<{ tracks: StreamTrack[] }>('/stream/downloads'),
+  streamRemoveDownload: (id: string) => del(`/stream/download/${id}`),
 
   // System
   info: () => get('/system/info'),

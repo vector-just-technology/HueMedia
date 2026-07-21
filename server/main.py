@@ -26,11 +26,13 @@ def create_app():
     from api.bluetooth import bt_bp
     from api.system import system_bp
     from api.playback import playback_bp
+    from api.stream import stream_bp
 
     app.register_blueprint(music_bp, url_prefix="/api/music")
     app.register_blueprint(bt_bp, url_prefix="/api/bluetooth")
     app.register_blueprint(system_bp, url_prefix="/api/system")
     app.register_blueprint(playback_bp, url_prefix="/api/playback")
+    app.register_blueprint(stream_bp, url_prefix="/api/stream")
 
     # Serve web UI (built React app or static fallback)
     @app.route("/")
