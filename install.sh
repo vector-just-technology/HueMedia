@@ -94,8 +94,7 @@ chmod +x /opt/hue-media/scripts/setup-static-ip.sh
 
 systemctl daemon-reload
 systemctl enable hue-static-ip.service
-systemctl start hue-static-ip.service
-log "Static IP configured: 10.0.0.174"
+log "Static IP service enabled (activates on next boot)"
 
 # ---------------------------------------------------------------------------
 # Install all system dependencies and services
