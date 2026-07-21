@@ -1,28 +1,14 @@
 #!/bin/bash
-set -e
 
 REPO="https://github.com/vector-just-technology/HueMedia.git"
 INSTALL_DIR="/opt/hue-media"
 HUE_USER="hue"
-HUE_HOME="/home/${HUE_USER}"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; }
 head() { echo -e "\n${CYAN}=== $1 ===${NC}"; }
-
-cleanup() {
-  if [ $? -ne 0 ]; then
-    err "Installation failed"
-  fi
-}
-trap cleanup EXIT
 
 echo -e "${CYAN}"
 echo "  _   _             __  __      _ _       "
@@ -32,10 +18,9 @@ echo " |  _  |  __/  __/ | |  | |  __/| | |_\__ \\"
 echo " |_| |_|\___|\___| |_|  |_|\___|/ |\__|___/"
 echo "                             |__/           "
 echo -e "${NC}"
-  echo "  Lightweight Media Player for Raspberry Pi 3B"
+echo "  Lightweight Media Player for Raspberry Pi 3B"
 echo "========================================================="
 
-# Root check
 if [ "$(id -u)" -ne 0 ]; then
   echo ""
   err "Must run as root (use sudo)"
@@ -43,14 +28,10 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 head "System Check"
-if [ ! -f /proc/device-tree/model ] || ! grep -qi "raspberry pi 3" /proc/device-tree/model 2>/dev/null; then
-  warn "Not detected as Raspberry Pi 3 — proceeding anyway"
-else
+if [ -f /proc/device-tree/model ]; then
   log "Detected: $(tr -d '\0' < /proc/device-tree/model)"
-fi
-
-if ! grep -qi "debian\|raspbian" /etc/os-release 2>/dev/null; then
-  warn "Not Debian/Raspbian — some package names may differ"
+else
+  warn "Not a Raspberry Pi — proceeding anyway"
 fi
 
 head "Setting up HueMedia user"
@@ -69,8 +50,8 @@ if [ -d "$INSTALL_DIR" ]; then
     log "Updating existing repository"
     cd "$INSTALL_DIR"
     git remote set-url origin "$REPO" 2>/dev/null || true
-    git fetch origin 2>&1 | tail -2
-    git reset --hard origin/main 2>&1 | tail -1
+    git fetch origin 2>&1 | tail -2 || true
+    git reset --hard origin/main 2>&1 | tail -1 || true
   else
     warn "Directory exists but not a git repo — re-cloning"
     rm -rf "$INSTALL_DIR"
@@ -80,12 +61,11 @@ else
   log "Cloning into $INSTALL_DIR"
   git clone "$REPO" "$INSTALL_DIR"
 fi
-chown -R "$HUE_USER:$HUE_USER" "$INSTALL_DIR"
-
+chown -R "$HUE_USER:$HUE_USER" "$INSTALL_DIR" 2>/dev/null || true
 cd "$INSTALL_DIR"
 
-# ---------------------------------------------------------------------------
-# Install all system dependencies and services
-# ---------------------------------------------------------------------------
 head "System Setup"
 bash setup/02-finalize.sh
+
+echo ""
+log "Installation complete — HueMedia will start on next boot"

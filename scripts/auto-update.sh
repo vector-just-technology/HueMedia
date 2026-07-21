@@ -12,6 +12,7 @@ if [ ! -d "$INSTALL_DIR/.git" ]; then
 fi
 
 cd "$INSTALL_DIR"
+export GIT_TERMINAL_PROMPT=0
 
 LATEST_TAG=$(git ls-remote --tags origin 2>/dev/null | grep -v '{}' | awk '{print $2}' | sed 's|refs/tags/||' | sort -V | tail -1)
 CURRENT_TAG=$(cat "$VERSION_FILE" 2>/dev/null || echo "")

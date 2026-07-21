@@ -1,5 +1,4 @@
 #!/bin/bash
-# Web interface setup (React build + API server)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/00-utils.sh" 2>/dev/null || true
@@ -10,9 +9,6 @@ head "Web Interface Setup"
 
 VENV_DIR="$INSTALL_DIR/player/.venv"
 
-# ---------------------------------------------------------------
-# Flask API server service
-# ---------------------------------------------------------------
 cat > /etc/systemd/system/hue-api.service << 'SERVICE'
 [Unit]
 Description=HueMedia API Server (port 5000)
@@ -34,30 +30,24 @@ Environment=FLASK_ENV=production
 WantedBy=multi-user.target
 SERVICE
 
-# ---------------------------------------------------------------
-# Install server dependencies
-# ---------------------------------------------------------------
 if [ -f "$INSTALL_DIR/server/requirements.txt" ]; then
-  "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/server/requirements.txt" -q
+  log "Installing API server dependencies..."
+  "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/server/requirements.txt" 2>&1 | tail -3 || warn "pip install failed"
 fi
 
-# ---------------------------------------------------------------
-# Web UI — use pre-built or build from source
-# ---------------------------------------------------------------
 if [ -d "$INSTALL_DIR/web/dist" ]; then
   log "Using pre-built web UI"
 else
-  if has_cmd node && has_cmd npm; then
-    log "Building web UI from source"
+  if command -v npm &>/dev/null; then
+    log "Building web UI from source (this may take a minute)..."
     cd "$INSTALL_DIR/web"
-    npm install --silent 2>/dev/null
-    npm run build 2>/dev/null && log "Web UI built successfully" || warn "Web UI build failed — using fallback"
+    npm install 2>&1 | tail -5 || warn "npm install failed"
+    npm run build 2>&1 | tail -5 && log "Web UI built" || warn "Web UI build failed"
   else
-    warn "Node.js not available — web UI will use Flask-served templates"
+    log "npm not found — web UI pre-built files will be used if available"
   fi
 fi
 
-# Enable API service
-systemctl enable hue-api.service
-PI_IP=$(hostname -I | awk '{print $1}')
+systemctl enable hue-api.service 2>/dev/null || true
+PI_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 log "Web interface: http://${PI_IP}:5000"

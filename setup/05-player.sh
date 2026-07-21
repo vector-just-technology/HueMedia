@@ -87,7 +87,7 @@ StandardError=journal
 WantedBy=multi-user.target
 SERVICE
 
-chmod +x "$INSTALL_DIR/scripts/auto-update.sh"
+chmod +x "$INSTALL_DIR/scripts/auto-update.sh" 2>/dev/null || true
 systemctl enable hue-auto-update.service
 
 log "Player service installed and enabled"
