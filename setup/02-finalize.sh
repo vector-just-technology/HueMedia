@@ -17,8 +17,10 @@ touch /tmp/hue-media-setup
 head "Installing System Dependencies"
 
 if has_cmd apt; then
-  apt-get update -qq
+  log "Updating package lists (this may take a minute)..."
+  apt-get update 2>&1 | tail -3
   
+  log "Installing packages..."
   apt_install \
     python3 python3-pip python3-venv \
     python3-sdl2 libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev \

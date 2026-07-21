@@ -37,7 +37,7 @@ is_raspberry_pi() {
 }
 
 apt_install() {
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
 }
 
 pip_install() {
