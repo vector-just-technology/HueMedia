@@ -11,7 +11,7 @@ head "Media Player Setup"
 VENV_DIR="$INSTALL_DIR/player/.venv"
 
 # ---------------------------------------------------------------
-# ALSA configuration for LCD-35-Show (audio via GPIO/HDMI)
+# ALSA configuration
 # ---------------------------------------------------------------
 mkdir -p /etc/alsa/conf.d
 
@@ -43,7 +43,7 @@ Wants=local-fs.target
 Type=simple
 User=hue
 WorkingDirectory=/opt/hue-media/player
-Environment=SDL_FBDEV=/dev/fb1
+Environment=SDL_FBDEV=/dev/fb0
 Environment=SDL_MOUSEDEV=/dev/input/touchscreen
 Environment=SDL_MOUSEDRV=evdev
 Environment=SDL_VIDEODRIVER=fbcon
@@ -65,5 +65,29 @@ if [ -f "$INSTALL_DIR/player/requirements.txt" ]; then
 fi
 
 systemctl enable hue-player.service
+
+# ---------------------------------------------------------------
+# Boot-time auto-update service
+# ---------------------------------------------------------------
+cat > /etc/systemd/system/hue-auto-update.service << 'SERVICE'
+[Unit]
+Description=HueMedia Auto-Update (boot-time)
+After=network-online.target
+Wants=network-online.target
+Before=hue-player.service hue-api.service hue-bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/hue-media/scripts/auto-update.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+chmod +x "$INSTALL_DIR/scripts/auto-update.sh"
+systemctl enable hue-auto-update.service
 
 log "Player service installed and enabled"

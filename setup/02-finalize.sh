@@ -1,6 +1,5 @@
 #!/bin/bash
-# Final system setup — runs AFTER LCD driver is confirmed working
-# Triggered by recovery server on successful boot
+# Final system setup — installs all dependencies and services
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/00-utils.sh" 2>/dev/null || true
@@ -106,7 +105,7 @@ head "Enabling Services"
 
 systemctl daemon-reload
 
-for svc in hue-player hue-api hue-bluetooth hue-automount; do
+for svc in hue-auto-update hue-player hue-api hue-bluetooth hue-automount; do
   if [ -f "/etc/systemd/system/$svc.service" ]; then
     systemctl enable "$svc.service" 2>/dev/null || true
     systemctl restart "$svc.service" 2>/dev/null || true
@@ -114,23 +113,15 @@ for svc in hue-player hue-api hue-bluetooth hue-automount; do
 done
 
 # ---------------------------------------------------------------
-# Step 9: Cleanup Recovery Server
+# Step 9: Finalize
 # ---------------------------------------------------------------
 head "Finalizing"
 
-# Remove the phase1 marker
-rm -f /boot/hue-media-phase1 /boot/firmware/hue-media-phase1
-
-# Recovery server stays installed but disabled — can be re-enabled if needed
-systemctl disable hue-recovery.service 2>/dev/null || true
-systemctl stop hue-recovery.service 2>/dev/null || true
-
-# Mark setup complete
 touch /opt/hue-media/.setup-complete
 
 log "HueMedia setup complete!"
 echo ""
-echo -e "  ${GREEN}Display Player:${NC}  Starts automatically on the LCD"
+echo -e "  ${GREEN}Display Player:${NC}  Starts automatically"
 echo -e "  ${GREEN}Web Interface:${NC}   http://10.0.0.174:5000"
 echo -e "  ${GREEN}SAMBA Share:${NC}     \\\\10.0.0.174\\music"
 echo -e "  ${GREEN}SSH Access:${NC}      ssh hue@10.0.0.174"

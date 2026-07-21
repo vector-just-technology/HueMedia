@@ -8,7 +8,7 @@
 
 # HueMedia
 
-A lightweight, touch-optimized media player for **Raspberry Pi 3B** with **Hosyond 3.5" GPIO touchscreen (LCD-35-Show)**. SDL2-based UI, MPV playback engine, Bluetooth A2DP/AVRCP headphones, Spotify/YouTube streaming, auto-detecting USB storage pooling, dual-drive isolation ([SYSTEM] vs [MUSIC]), SAMBA sharing, and a full React web management interface.
+A lightweight, touch-optimized media player for **Raspberry Pi 3B**. SDL2-based UI, MPV playback engine, Bluetooth A2DP/AVRCP headphones, Spotify/YouTube streaming, auto-detecting USB storage pooling, dual-drive isolation ([SYSTEM] vs [MUSIC]), SAMBA sharing, and a full React web management interface.
 
 ---
 
@@ -26,7 +26,6 @@ A lightweight, touch-optimized media player for **Raspberry Pi 3B** with **Hosyo
 | **Web Interface** | React SPA at `10.0.0.174:5000` — browse, play, upload, SSH terminal, plugin manager |
 | **Dual Drive** | SD card = [SYSTEM] (read-only for music); USB drives = [MUSIC], auto-pooled via mergerfs |
 | **SAMBA** | `\\10.0.0.174\MUSIC` — drag-and-drop music onto pooled drives |
-| **Recovery System** | First-boot web server at `10.0.0.174:3000` — auto-fix LCD/SSH failures |
 | **Power Efficiency** | Runs on framebuffer, no X11/Wayland, CPU governor powersave, USB autosuspend |
 
 ---
@@ -34,7 +33,6 @@ A lightweight, touch-optimized media player for **Raspberry Pi 3B** with **Hosyo
 ## Hardware Requirements
 
 - **Raspberry Pi 3B** or 3B+
-- **Hosyond 3.5" GPIO touchscreen** (LCD-35-Show driver)
 - MicroSD card (16GB+ recommended, 32GB+ for larger libraries)
 - USB drive(s) for music storage (FAT32, exFAT, NTFS, or ext4)
 - Optional: Bluetooth headphones/speakers
@@ -95,49 +93,16 @@ sudo bash install.sh
 #### 4. What Happens During Installation
 
 ```
-Phase 1 — Pre-LCD Setup
   ├── Creates 'hue' system user
   ├── Sets static IP 10.0.0.174
-  ├── Installs recovery web server (port 3000)
-  └── Writes phase-1 marker to /boot
-
-Phase 2 — LCD Driver
-  ├── Downloads LCD-35-Show driver
-  ├── Patches it to preserve SSH (the stock driver kills SSH!)
-  ├── Ensures SSH is enabled before reboot
-  └── Runs LCD35-show — system REBOOTS
-
-Phase 3 — Recovery & Auto-Heal (runs automatically on each boot)
-  ├── Recovery server at 10.0.0.174:3000 starts
-  ├── Checks: LCD framebuffer (/dev/fb1)?
-  ├── Checks: SSH running?
-  ├── If both OK → automatically starts Phase 4
-  └── If not → recovery web page shows status + fix buttons
-
-Phase 4 — Final Setup (triggered by recovery server)
   ├── Installs system deps (MPV, SDL2, BlueZ, SAMBA, mergerfs, etc.)
   ├── Creates Python venv, installs pysdl2, python-mpv, Flask
   ├── Configures Bluetooth (A2DP + AVRCP)
   ├── Configures SAMBA shares
   ├── Sets up udev rules for auto-mounting USB drives
   ├── Enables systemd services (player, API, Bluetooth)
-  ├── Removes phase-1 marker, disables recovery server
   └── REBOOTS into HueMedia
 ```
-
-### Recovery — If Something Goes Wrong
-
-If the LCD driver breaks SSH or the display doesn't work after reboot:
-
-1. Connect via Ethernet (the Pi sets IP `10.0.0.174` on eth0)
-2. Open `http://10.0.0.174:3000` in a browser
-3. The recovery page shows system status (LCD, SSH, network)
-4. Click **Enable SSH** to re-enable SSH access
-5. Click **Retry LCD Driver** to reinstall the LCD driver
-6. Click **Skip LCD (HDMI)** to continue without the GPIO display
-7. Once everything is green, click **All Good — Start Setup**
-
-If you can't reach `10.0.0.174`, your router may use a different subnet. Connect a keyboard and monitor (or use a USB serial cable) to debug.
 
 ---
 
@@ -150,7 +115,7 @@ After installation completes, you'll see:
 | **Web UI** | `http://10.0.0.174:5000` | Music library, playback, bluetooth, settings, SSH terminal |
 | **SAMBA** | `\\10.0.0.174\MUSIC` | Drag-and-drop music onto pooled USB drives |
 | **SSH** | `ssh hue@10.0.0.174` | System access |
-| **LCD Display** | Built-in | Now Playing, Library, Bluetooth, Settings |
+| **Display** | Built-in | Now Playing, Library, Bluetooth, Settings |
 
 ### Adding Music
 
@@ -169,7 +134,7 @@ Organize your music on any USB drive with this folder structure:
 
 USB drives are auto-detected and pooled at `/pool/Music`. You can also upload via the web UI or SAMBA.
 
-### Controls on the LCD
+### Controls on the Display
 
 | Action | How |
 |---|---|
@@ -199,16 +164,12 @@ HueMedia/
 ├── install.sh                 # One-shot installer
 ├── setup/                     # Modular install scripts
 │   ├── 00-utils.sh
-│   ├── 01-recovery-server.sh
 │   ├── 02-finalize.sh
 │   ├── 03-storage.sh
 │   ├── 04-bluetooth.sh
 │   ├── 05-player.sh
 │   ├── 06-samba.sh
 │   └── 07-web.sh
-├── recovery/                  # Flask recovery web server (port 3000)
-│   ├── server.py
-│   └── templates/recovery.html
 ├── player/                    # SDL2 touchscreen player
 │   ├── main.py
 │   ├── engine.py              # MPV playback engine

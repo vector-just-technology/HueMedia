@@ -145,7 +145,7 @@ def list_plugins():
 
 @system_bp.route("/logs/<service>")
 def logs(service):
-    allowed = {"hue-player", "hue-api", "hue-recovery", "hue-bluetooth"}
+    allowed = {"hue-player", "hue-api", "hue-bluetooth"}
     if service not in allowed:
         return jsonify({"error": "invalid service"}), 400
 

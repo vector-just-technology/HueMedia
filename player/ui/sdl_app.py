@@ -96,7 +96,7 @@ class SDLDisplay:
         self.last_tick = 0
 
     def init(self):
-        fbdev = os.environ.get("SDL_FBDEV", "/dev/fb1")
+        fbdev = os.environ.get("SDL_FBDEV", "/dev/fb0")
         sdl2.SDL_SetHint(b"SDL_FBDEV", fbdev.encode())
 
         mousedev = os.environ.get("SDL_MOUSEDEV", "")

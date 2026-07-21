@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""HueMedia — SDL2 touchscreen player for RPi 3B + 3.5" LCD.
-
-Entry point that initializes all subsystems and runs the SDL2 UI.
-"""
+"""HueMedia — SDL2 touchscreen player for RPi 3B."""
 
 import os
 import sys
@@ -35,7 +32,7 @@ def main():
         os.environ["DISPLAY"] = ":0"
     else:
         os.environ["SDL_VIDEODRIVER"] = "fbcon"
-        os.environ["SDL_FBDEV"] = "/dev/fb1"
+        os.environ["SDL_FBDEV"] = "/dev/fb0"
 
     # Write PID for external signaling (SIGUSR1 = rescan)
     Path("/tmp/hue-media-player.pid").write_text(str(os.getpid()))
